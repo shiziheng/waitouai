@@ -255,7 +255,36 @@ App 里的「斜眼看」是用**虹膜在眼眶里的位置**估的：看两个
 
 ## 自己构建
 
-标准 Gradle 工程，Android Studio 打开即可。
+**一条命令打包（推荐）**
+
+```bash
+python scripts/release.py
+```
+
+它会自动做完这几件事：
+
+1. 补丁版本 +1（`1.1.3` → `1.1.4`），同时 `versionCode` +1
+2. 跑单元测试
+3. 构建 Debug 包
+4. 复制到 `dist/电视护眼管家-<版本>-debug.apk`
+5. 清掉 dist 里的旧包
+
+其他用法：
+
+```bash
+python scripts/release.py --minor      # 次版本 +1，1.1.3 → 1.2.0
+python scripts/release.py --major      # 主版本 +1，1.1.3 → 2.0.0
+python scripts/release.py --no-bump    # 不升版本，重新打包
+python scripts/release.py --keep-old   # 保留 dist 里的旧安装包
+```
+
+**为什么必须升版本**
+
+版本号存在根目录的 `version.properties` 里，App 构建时从那里读。
+
+同一个 `versionCode` 的 APK 覆盖安装，系统有时会认为「没变化」而跳过安装，让人误以为新包没生效。所以每次打包都要把 `versionCode` 至少 +1。**别手改那个文件**，交给脚本。
+
+**手动构建**
 
 ```bat
 cd tv-eye-guardian

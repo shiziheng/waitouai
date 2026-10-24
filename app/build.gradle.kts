@@ -1,6 +1,16 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+}
+
+// 版本号统一放在根目录的 version.properties，打包脚本每次自动递增
+// 注意：这里必须用上面显式 import 的 Properties，
+// 直接写 java.util.Properties 会被 Gradle 的 java 扩展遮蔽，报 Unresolved reference
+val versionProps = Properties().apply {
+    val file = rootProject.file("version.properties")
+    if (file.exists()) file.inputStream().use { load(it) }
 }
 
 android {
@@ -11,8 +21,8 @@ android {
         applicationId = "com.huyan.tvguard"
         minSdk = 24
         targetSdk = 34
-        versionCode = 3
-        versionName = "1.1.1"
+        versionCode = versionProps.getProperty("versionCode", "1").toInt()
+        versionName = versionProps.getProperty("versionName", "1.0.0")
 
         ndk {
             // MediaPipe 的 native 库四个架构各带一份，只留手机用得上的两个，APK 体积减半
