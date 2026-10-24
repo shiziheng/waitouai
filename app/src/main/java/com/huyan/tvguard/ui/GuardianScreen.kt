@@ -41,6 +41,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
@@ -155,7 +156,24 @@ fun GuardianRoute(viewModel: GuardianViewModel = viewModel()) {
             PrimaryStatus(state)
             Spacer(Modifier.height(12.dp))
             MetricsCard(state)
-            Spacer(Modifier.height(14.dp))
+
+            if (state.showDiagnostics) {
+                Spacer(Modifier.height(12.dp))
+                DiagnosticsCard(state)
+            }
+
+            Spacer(Modifier.height(8.dp))
+            TextButton(
+                onClick = viewModel::toggleDiagnostics,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    text = if (state.showDiagnostics) "收起诊断信息" else "显示诊断信息",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Spacer(Modifier.height(6.dp))
 
             Button(
                 onClick = {
@@ -557,18 +575,74 @@ private fun MetricsCard(state: GuardianUiState) {
                 )
                 Spacer(Modifier.weight(1f))
                 Text(
-                    text = "${abs(state.liveLookDeg).roundToInt()}°",
+                    // 测不到就直说，不要显示 0° 让人以为「正对着」
+                    text = state.liveLookDeg?.let { "${abs(it).roundToInt()}°" } ?: "测不到",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             Spacer(Modifier.height(6.dp))
             LevelBar(
-                fraction = abs(state.liveLookDeg) / 60f,
+                fraction = state.liveLookDeg?.let { abs(it) / 60f } ?: 0f,
                 thresholdFraction = lookThreshold / 60f,
-                over = abs(state.liveLookDeg) >= lookThreshold,
+                over = (state.liveLookDeg?.let { abs(it) } ?: 0f) >= lookThreshold,
             )
         }
+    }
+}
+
+/**
+ * 诊断卡片：把「原始角度 / 扣除基线后的角度 / 可信度」直接摊开。
+ *
+ * 误报的时候光看一个仪表盘是查不出问题的，得能看到这些原始数字。
+ */
+@Composable
+private fun DiagnosticsCard(state: GuardianUiState) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Text(
+                "诊断信息",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(Modifier.height(10.dp))
+
+            DiagnosticRow("原始倾斜角", "${state.rawTiltDeg.roundToInt()}°")
+            DiagnosticRow("手机基线", "${state.baselineTiltDeg.roundToInt()}°")
+            DiagnosticRow("扣除后角度", "${state.liveTiltDeg.roundToInt()}°")
+            DiagnosticRow(
+                "两眼跨度",
+                "%.1f%%".format(state.eyeSpan * 100),
+            )
+            DiagnosticRow(
+                "角度可信",
+                if (state.tiltReliable) "是" else "否（脸太远或太偏）",
+            )
+        }
+    }
+}
+
+@Composable
+private fun DiagnosticRow(label: String, value: String) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 3.dp)) {
+        Text(
+            label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.weight(1f))
+        Text(
+            value,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
     }
 }
 

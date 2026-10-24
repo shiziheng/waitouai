@@ -77,11 +77,11 @@ fun residualTilt(rawTilt: Float, baselineTilt: Float) = normalizeTilt(rawTilt - 
 
 | 异常 | 默认阈值 | 持续 | 冷却 |
 |---|---|---|---|
-| `HEAD_TILT` 歪头 | 15° | 2 s | 20 s |
+| `HEAD_TILT` 歪头 | 20° | 3 s | 20 s |
 | `LOOK_ASIDE` 斜眼看 | 30° | 3 s | 30 s |
 | `TOO_CLOSE` 太近 | 1.20× | 3 s | 15 s |
 
-歪头判定比靠近更严（2 秒 vs 3 秒，20 秒 vs 15 秒冷却），因为它是重点。
+歪头阈值 20°（比 15° 更宽松，实测 15° 误报太多：靠沙发、侧身都算歪头），持续 3 秒，冷却 20 秒。
 
 丢帧容忍 1200 ms：孩子低头捡个东西不清零。
 

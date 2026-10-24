@@ -14,6 +14,38 @@ class SettingsStore(context: Context) {
 
     private val prefs = context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
 
+    init {
+        migrateDefaults()
+    }
+
+    /**
+     * 老版本默认值迁移。
+     *
+     * 1.0 版歪头阈值默认 15°、持续 2 秒，实测误报太多（靠沙发、侧身都算歪头）。
+     * 1.1 起改成 20° / 3 秒。但老用户手机上存着旧的 15f / 2000L，
+     * 必须显式升级，否则改了常量对已装用户完全无效。
+     *
+     * 只改「仍然是旧默认值」的项——用户自己调过的值不能动。
+     */
+    private fun migrateDefaults() {
+        val version = prefs.getInt(KEY_CONFIG_VERSION, 1)
+        if (version >= CONFIG_VERSION) return
+
+        prefs.edit().apply {
+            if (version < 2) {
+                // 歪头：15° / 2s → 20° / 3s
+                // 浮点用范围判断，别用 ==：存进去再读出来可能有微小误差
+                if (kotlin.math.abs(prefs.getFloat(KEY_TILT_THRESHOLD, 15f) - 15f) < 0.01f) {
+                    putFloat(KEY_TILT_THRESHOLD, MonitorEngine.DEFAULT_TILT_DEG)
+                }
+                if (prefs.getLong(KEY_TILT_SUSTAIN, 2_000L) == 2_000L) {
+                    putLong(KEY_TILT_SUSTAIN, 3_000L)
+                }
+            }
+            putInt(KEY_CONFIG_VERSION, CONFIG_VERSION)
+        }.apply()
+    }
+
     // ---------- 校准 ----------
 
     /** 校准时记录的脸宽基准（归一化值）；0 表示还没校准 */
@@ -129,6 +161,8 @@ class SettingsStore(context: Context) {
 
     private companion object {
         const val FILE_NAME = "tv_eye_guardian"
+        const val KEY_CONFIG_VERSION = "config_version"
+        const val CONFIG_VERSION = 2
         const val KEY_BASELINE_WIDTH = "baseline_face_width"
         const val KEY_BASELINE_TILT = "baseline_tilt"
         const val KEY_NEAR_ENABLED = "near_enabled"

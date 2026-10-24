@@ -22,20 +22,18 @@ class MonitorEngineTest {
     fun `三路可以同时各自计时`() {
         engine.onFrame(nearRatio = 1.4f, tiltDeg = 25f, lookDeg = 40f, now = 0L)
 
-        // 歪头默认 2 秒就提醒，比靠近（3 秒）更早
-        val at2100 = engine.onFrame(1.4f, 25f, 40f, 2_100L)
-        assertTrue(at2100.alerts.contains(IssueKind.HEAD_TILT))
-        assertFalse(at2100.alerts.contains(IssueKind.TOO_CLOSE))
-
-        // 到 3 秒时靠近也提醒
-        val at3100 = engine.onFrame(1.4f, 25f, 40f, 3_100L)
-        assertTrue(at3100.alerts.contains(IssueKind.TOO_CLOSE))
+        // 歪头和靠近都是 3 秒门槛，到 3 秒时两路一起触发
+        val at3000 = engine.onFrame(1.4f, 25f, 40f, 3_000L)
+        assertTrue(at3000.alerts.contains(IssueKind.HEAD_TILT))
+        assertTrue(at3000.alerts.contains(IssueKind.TOO_CLOSE))
+        // 视线偏离门槛是 3 秒，但阈值 30° 也被 40° 撞破了，同样触发
+        assertTrue(at3000.alerts.contains(IssueKind.LOOK_ASIDE))
     }
 
     @Test
     fun `只有歪头时只报歪头`() {
         engine.onFrame(1.0f, 22f, 10f, 0L)
-        val tick = engine.onFrame(1.0f, 22f, 10f, 2_000L)
+        val tick = engine.onFrame(1.0f, 22f, 10f, 3_000L)
 
         assertEquals(listOf(IssueKind.HEAD_TILT), tick.alerts)
         assertFalse(tick.tick(IssueKind.TOO_CLOSE)!!.active)
@@ -45,10 +43,19 @@ class MonitorEngineTest {
     @Test
     fun `负角度也算歪头`() {
         engine.onFrame(1.0f, -25f, 5f, 0L)
-        val tick = engine.onFrame(1.0f, -25f, 5f, 2_000L)
+        val tick = engine.onFrame(1.0f, -25f, 5f, 3_000L)
 
         assertTrue(tick.tick(IssueKind.HEAD_TILT)!!.active)
         assertTrue(tick.alerts.contains(IssueKind.HEAD_TILT))
+    }
+
+    @Test
+    fun `19度不算歪头 20度才算`() {
+        // 阈值 20°：日常坐姿稍微歪一点不该被管
+        assertFalse(engine.onFrame(1.0f, 19f, 5f, 0L).tick(IssueKind.HEAD_TILT)!!.active)
+        engine.reset()
+        // 正好 20° 要算进去
+        assertTrue(engine.onFrame(1.0f, 20f, 5f, 0L).tick(IssueKind.HEAD_TILT)!!.active)
     }
 
     @Test

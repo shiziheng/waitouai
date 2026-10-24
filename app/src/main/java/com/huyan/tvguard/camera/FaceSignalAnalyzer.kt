@@ -166,7 +166,11 @@ class FaceSignalAnalyzer(
             FaceSignal(
                 faceWidth = smoothW,
                 tiltDeg = tilt,
-                lookDeg = look ?: 0f,
+                // 测不到就传 null，不要伪装成 0 度。
+                // 传 0 会让上层分不清「眼睛确实正对」和「根本没测出来」两件事。
+                lookDeg = look,
+                // 脸在画面里越小，角度读数越不可靠，一起交给上层判断
+                eyeSpan = eyeSpan(face),
             )
         )
     }
@@ -176,6 +180,19 @@ class FaceSignalAnalyzer(
     private fun faceWidth(face: List<NormalizedLandmark>): Float {
         if (face.size <= RIGHT_CHEEK) return 0f
         return abs(face[RIGHT_CHEEK].x() - face[LEFT_CHEEK].x())
+    }
+
+    /**
+     * 两只外眼角在画面里的实际距离（归一化，0~1）。
+     *
+     * 这个值决定倾斜角算得准不准：跨度越小，同样的关键点抖动换算出的角度误差越大。
+     * 上层用它来判断「这个角度值该不该信」，而不是看到一个数就当真理。
+     */
+    private fun eyeSpan(face: List<NormalizedLandmark>): Float {
+        if (face.size <= LEFT_EYE_OUTER) return 0f
+        val a = face[RIGHT_EYE_OUTER]
+        val b = face[LEFT_EYE_OUTER]
+        return hypot((b.x() - a.x()).toDouble(), (b.y() - a.y()).toDouble()).toFloat()
     }
 
     /**

@@ -11,8 +11,8 @@ android {
         applicationId = "com.huyan.tvguard"
         minSdk = 24
         targetSdk = 34
-        versionCode = 2
-        versionName = "1.1.0"
+        versionCode = 3
+        versionName = "1.1.1"
 
         ndk {
             // MediaPipe 的 native 库四个架构各带一份，只留手机用得上的两个，APK 体积减半

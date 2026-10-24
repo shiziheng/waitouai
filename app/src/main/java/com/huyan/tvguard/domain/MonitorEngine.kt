@@ -258,7 +258,15 @@ class MonitorEngine(
         const val MIN_RECORDED_DURATION_MILLIS = 1_000L
 
         const val DEFAULT_NEAR_RATIO = 1.20f
-        const val DEFAULT_TILT_DEG = 15f
+
+        /**
+         * 歪头阈值。
+         *
+         * 原来是 15°，实测误报太多——孩子靠着沙发靠背、稍微侧一点身子，
+         * 头自然就是歪几度的，15° 很容易被日常坐姿撞破。
+         * 20° 才是「明显歪着头」的程度，配合 3 秒持续，能滤掉大部分正常姿势。
+         */
+        const val DEFAULT_TILT_DEG = 20f
         const val DEFAULT_LOOK_DEG = 30f
 
         fun defaultRules(): Map<IssueKind, IssueRule> = mapOf(
@@ -273,8 +281,8 @@ class MonitorEngine(
                 kind = IssueKind.HEAD_TILT,
                 enabled = true,
                 threshold = DEFAULT_TILT_DEG,
-                // 歪头比靠近更值得管，所以更快提醒
-                sustainMillis = 2_000L,
+                // 歪头比靠近更值得管，但也不能一歪就喊：给 3 秒让人自然坐正
+                sustainMillis = 3_000L,
                 cooldownMillis = 20_000L,
             ),
             IssueKind.LOOK_ASIDE to IssueRule(

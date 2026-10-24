@@ -7,14 +7,37 @@ import kotlin.math.abs
  *
  * @param faceWidth 脸宽占画面宽度的比例（用于判断远近）
  * @param tiltDeg   两眼连线相对水平线的角度。画面里孩子歪头偏左，读数偏负；偏右偏正。
- *                  注意这是「画面坐标」，不是孩子的真实头姿，见 [TiltRuleEngine]
- * @param lookDeg   眼神偏离「正前方」的角度。绝对值越大，越是在斜着看
+ *                  注意这是「画面坐标」，不是孩子的真实头姿，见 [Angles.residualTilt]
+ * @param lookDeg   眼神偏离「正前方」的角度。绝对值越大，越是在斜着看。
+ *                  **null 表示这一帧没测出来**（头转太多、虹膜没抓到），不等于「正对」
+ * @param eyeSpan   两只外眼角的归一化距离。越小说明脸在画面里越远、角度越不可信
  */
 data class FaceSignal(
     val faceWidth: Float,
     val tiltDeg: Float,
-    val lookDeg: Float,
-)
+    val lookDeg: Float? = null,
+    val eyeSpan: Float = 0f,
+) {
+    /**
+     * 这个倾斜角读数是否可信。
+     *
+     * 两眼外眼角跨度太小的时候，几个像素的关键点抖动就能让 atan2 算出的角度
+     * 飘出十几二十度——这正是「明明没歪头却一直报歪头」的主因之一。
+     * 跨度低于 [MIN_TRUSTED_EYE_SPAN] 时宁可不判断。
+     */
+    val tiltReliable: Boolean
+        get() = eyeSpan >= MIN_TRUSTED_EYE_SPAN
+
+    companion object {
+        /**
+         * 可信的最小眼角跨度。
+         *
+         * 640 宽的画面上，这个值约等于 45 像素。低于这个距离，眼角的定位精度
+         * （MediaPipe 自带误差量级）换算成角度已经超过 5 度，不足以支撑 15 度阈值。
+         */
+        const val MIN_TRUSTED_EYE_SPAN = 0.07f
+    }
+}
 
 /** 一帧的检测结果：要么有有效信号，要么说清楚为什么没有 */
 sealed interface FrameReading {

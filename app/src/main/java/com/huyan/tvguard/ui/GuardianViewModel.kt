@@ -44,8 +44,18 @@ data class GuardianUiState(
 
     /** 实时倾斜角（已扣除手机基线） */
     val liveTiltDeg: Float = 0f,
-    val liveLookDeg: Float = 0f,
+    /** 未扣基线的原始倾斜角，诊断用 */
+    val rawTiltDeg: Float = 0f,
+    /** 当前角度读数是否可信（两眼跨度够不够） */
+    val tiltReliable: Boolean = false,
+    /** 两眼外眼角跨度，诊断用 */
+    val eyeSpan: Float = 0f,
+    /** 视线角；null 表示这一帧没测出来 */
+    val liveLookDeg: Float? = null,
     val liveNearRatio: Float = 0f,
+
+    /** 是否显示诊断信息（排查误报用） */
+    val showDiagnostics: Boolean = false,
 
     /** 当前正在计时的异常，以及还差多少毫秒提醒 */
     val activeIssues: Map<IssueKind, IssueTick> = emptyMap(),
@@ -220,6 +230,9 @@ class GuardianViewModel(app: Application) : AndroidViewModel(app) {
                     it.copy(
                         status = LiveStatus.NOT_CALIBRATED,
                         liveTiltDeg = signal.tiltDeg,
+                        rawTiltDeg = signal.tiltDeg,
+                        tiltReliable = signal.tiltReliable,
+                        eyeSpan = signal.eyeSpan,
                         liveLookDeg = signal.lookDeg,
                         liveNearRatio = 0f,
                     )
@@ -232,9 +245,12 @@ class GuardianViewModel(app: Application) : AndroidViewModel(app) {
 
             val nearRatio = if (baselineWidth > 0f) signal.faceWidth / baselineWidth else null
             val residualTilt = Angles.residualTilt(signal.tiltDeg, baselineTilt)
+            // 眼睛距离太近/太远导致角度算不准时，不拿这个数去判定，宁可说「测不到」。
+            // 之前直接把原始值喂进去，远处模糊的脸会把角度抖到二三十度，于是没歪头也一直报。
+            val tiltForRule = if (signal.tiltReliable) residualTilt else null
             val look = signal.lookDeg
 
-            val result = engine.onFrame(nearRatio, residualTilt, look, now)
+            val result = engine.onFrame(nearRatio, tiltForRule, look, now)
 
             // 记账：异常结束时记录持续时长
             result.finishedDurations.forEach { (kind, millis) ->
@@ -258,6 +274,9 @@ class GuardianViewModel(app: Application) : AndroidViewModel(app) {
                         else -> LiveStatus.WARNING
                     },
                     liveTiltDeg = residualTilt,
+                    rawTiltDeg = signal.tiltDeg,
+                    tiltReliable = signal.tiltReliable,
+                    eyeSpan = signal.eyeSpan,
                     liveLookDeg = look,
                     liveNearRatio = nearRatio ?: 0f,
                     activeIssues = activeIssues,
@@ -317,6 +336,11 @@ class GuardianViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** 开关诊断信息，排查误报时用 */
+    fun toggleDiagnostics() {
+        _uiState.update { it.copy(showDiagnostics = !it.showDiagnostics) }
+    }
+
     // ---------- 校准 ----------
 
     fun calibrate() {
@@ -357,8 +381,7 @@ class GuardianViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun clearCalibration() {
-        settings.clearCalibration()
+    fun clearCalibration() {        settings.clearCalibration()
         engine.reset()
         _uiState.update {
             it.copy(
